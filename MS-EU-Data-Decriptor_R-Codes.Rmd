@@ -1,0 +1,276 @@
+---
+Title: "European river metagenomes and MAGs"
+Author: "Joeselle Serrana"
+Date: "02/10/2026"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+## Load required library and set working directory
+
+```{r}
+#setwd("~/Library/Mobile Documents/com~apple~CloudDocs/Documents/(Draft) EU Data Descriptor")
+setwd("C:/Users/JoeselleSerrana/iCloudDrive/Documents/(Draft) EU Data Descriptor")
+
+meta <- read_excel("./MS-EU-Data-Decriptor_Supplementary-Tables.xlsx", sheet = "S1 Metadata")
+seq <- read_excel("./MS-EU-Data-Decriptor_Supplementary-Tables.xlsx", sheet = "S2 Sequencing statistics")
+mags <- read_excel("./MS-EU-Data-Decriptor_Supplementary-Tables.xlsx", sheet = "S3 MAGs statistics")
+
+theme_set(theme_bw(base_size = 12))
+```
+
+## Figure 1a
+
+```{r}
+library(tidyverse); library(sf); library(rnaturalearth); library(rnaturalearthdata); library(ggrepel)
+
+meta <- meta %>% mutate(Status = str_trim(Status), Status = factor(Status, levels = c("Pristine Freshwater", "Pristine Salty Estuary", "Contaminated")))
+country_labels <- tibble(Country = c("Sweden", "Germany", "Switzerland", "Spain", "Greece"), Longitude = c(18.5, 13.5, 8.7, 2.5, 22.8), Latitude = c(61.0, 53.5, 48.0, 42.3, 41.0))
+
+plot_sites <- meta %>% mutate(X_plot = Longitude, Y_plot = Latitude)
+plot_sites <- plot_sites %>% mutate(X_plot = case_when(Site == "Uerke Upstream" ~ Longitude - 0.25, 
+                                                       Site == "Uerke Downstream" ~ Longitude + 0.25,
+                                                       Site == "Tegeler Fliess Upstream" ~ Longitude - 0.20,
+                                                       Site == "Tegeler Fliess Downstream" ~ Longitude + 0.20,
+                                                       Site == "Gallikos Upstream" ~ Longitude - 0.20,
+                                                       Site == "Gallikos Downstream" ~ Longitude + 0.20,
+                                                       Site == "Vitsån Upstream" ~ Longitude - 0.20,
+                                                       Site == "Vitsån Downstream" ~ Longitude + 0.20,
+                                                       Site == "Knivstaån Upstream" ~ Longitude - 0.20,
+                                                       Site == "Knivstaån Downstream" ~ Longitude + 0.20,
+                                                       TRUE ~ Longitude),
+                                    Y_plot = case_when(Site == "Uerke Upstream" ~ Latitude + 0.08,
+                                                       Site == "Uerke Downstream" ~ Latitude - 0.08,
+                                                       
+                                                       Site == "Tegeler Fliess Upstream" ~ Latitude + 0.08,
+                                                       Site == "Tegeler Fliess Downstream" ~ Latitude - 0.08,
+                                                       Site == "Gallikos Upstream" ~ Latitude + 0.06,
+                                                       Site == "Gallikos Downstream" ~ Latitude - 0.06,
+                                                       Site == "Vitsån Upstream" ~ Latitude + 0.06,
+                                                       Site == "Vitsån Downstream" ~ Latitude - 0.06,
+                                                       Site == "Knivstaån Upstream" ~ Latitude + 0.06,
+                                                       Site == "Knivstaån Downstream" ~ Latitude - 0.06,
+                                                       TRUE ~ Latitude))
+
+# Europe map
+world <- ne_countries(scale = "medium", returnclass = "sf")
+
+# Figure 1A
+ggplot() + geom_sf(data = world, fill = "#CFE3D0", colour = "grey75", linewidth = 0.2) +  
+           geom_text(data = country_labels, aes(Longitude, Latitude, label = Country), size = 5, fontface = "bold", colour = "grey60", alpha = 0.45) +
+           geom_segment(data = plot_sites, aes(x = Longitude, y = Latitude, xend = X_plot, yend = Y_plot), colour = "grey55", linewidth = 0.3) +
+           geom_point(data = plot_sites, aes(X_plot, Y_plot, fill = Status), shape = 21, size = 2.2, colour = "black", stroke = 0.3) +
+           geom_text_repel(data = plot_sites, aes(X_plot, Y_plot, label = Site), seed = 123, size = 3.2, box.padding = 1, point.padding = 0.8, force = 50,
+                           max.overlaps = Inf, min.segment.length = 0, segment.size = 0.3, segment.colour = "grey50") +
+           scale_fill_manual(values = c("Pristine Freshwater" = "#4575B4", "Pristine Salty Estuary" = "#1A9850", "Contaminated" = "#D73027"), drop = FALSE) +
+           coord_sf(xlim = c(-6, 29), ylim = c(38, 62.5), expand = FALSE) + labs(x = "Longitude", y = "Latitude", fill = "Site category") +
+           theme_bw(base_size = 12) + theme(panel.grid.major = element_line(colour = "grey90", linewidth = 0.3), panel.grid.minor = element_blank(), legend.position = "right",
+                                            legend.title = element_text(face = "bold"), axis.title = element_text(face = "bold"))
+```
+
+## Figure 1c-d
+
+```{r}
+library(tidyverse); library(patchwork)
+
+fig1c <- ggplot(seq, aes(`bbcms reads` / 1e6)) + geom_density(fill = "#74A9CF", colour = "#2B5C8A", alpha = 0.7, linewidth = 1) +
+         geom_rug(sides = "b", alpha = 0.7, linewidth = 0.5) + geom_vline(xintercept = median(seq$`bbcms reads` / 1e6), colour = "#D73027", linetype = "dashed", linewidth = 1) +
+         labs(x = "High-quality non-human reads (millions)", y = "Density") + theme_bw(base_size = 12) +
+         theme(panel.grid.minor = element_blank())
+
+fig1d <- ggplot(seq, aes(`total contig length` / 1e6)) + geom_density(fill = "#66C2A5", colour = "#238B45", alpha = 0.7, linewidth = 1) +
+         geom_rug(sides = "b", alpha = 0.7, linewidth = 0.5) + geom_vline(xintercept = median(seq$`total contig length` / 1e6), colour = "#D73027", linetype = "dashed", linewidth = 1) +
+         labs(x = "Contig assembly size (Mb)", y = "Density") + theme_bw(base_size = 12) +
+         theme(panel.grid.minor = element_blank())
+
+fig1e <- ggplot(seq, aes(N50)) + geom_histogram(bins = 8, fill = "#FDB863", colour = "#E08214", alpha = 0.8) + 
+         geom_vline(xintercept = median(seq$N50), colour = "#D73027", linetype = "dashed", linewidth = 1) + labs(x = "N50 (bp)", y = "No. of samples") +
+         theme_bw(base_size = 12) + theme(panel.grid.minor = element_blank())
+
+fig1f <- ggplot(seq, aes(`GC (%)`)) + geom_histogram(bins = 8, fill = "#BC80BD", colour = "#7A0177", alpha = 0.8) +
+         geom_vline(xintercept = median(seq$`GC (%)`), colour = "#D73027", linetype = "dashed", linewidth = 1) +
+         labs(x = "GC content (%)", y = "No. of samples") + theme_bw(base_size = 12) +
+         theme(panel.grid.minor = element_blank())
+
+fig1_cf <- ( fig1c | fig1d | fig1e | fig1f ) + plot_annotation(tag_levels = list(c("c", "d", "e", "f")))
+fig1_cf
+```
+
+## Figure 2a-d
+
+```{r}
+library(tidyverse); library(patchwork)
+
+fig2a <- ggplot(mags, aes(completeness)) + geom_density(fill = "#1B9E77", colour = "#006D5B", alpha = 0.7, linewidth = 1) + geom_rug(sides = "b", alpha = 0.6) +
+         geom_vline(xintercept = 50, colour = "#D73027", linetype = "dashed", linewidth = 1) +
+         geom_vline(xintercept = 90, colour = "#238B45", linetype = "dotted", linewidth = 1) +
+         labs(x = "Completeness (%)", y = "Density") + theme_bw(base_size = 12) + theme(panel.grid.minor = element_blank())
+
+fig2b <- ggplot(mags, aes(contamination)) + geom_density(fill = "#D95F02", colour = "#A63603", alpha = 0.7, linewidth = 1) +
+         geom_rug(sides = "b", alpha = 0.6) + geom_vline(xintercept = 5, colour = "#238B45", linetype = "dotted", linewidth = 1) +
+         geom_vline(xintercept = 10, colour = "#D73027", linetype = "dashed", linewidth = 1) +
+         labs(x = "Contamination (%)", y = "Density") + theme_bw(base_size = 12) + theme(panel.grid.minor = element_blank())
+
+fig2c <- ggplot(mags, aes(size / 1e6, completeness)) + geom_point(colour = "#E7298A", alpha = 0.75, size = 2.3) +
+         geom_smooth(method = "lm", se = FALSE, colour = "#C51B7D", linewidth = 0.9) + geom_hline(yintercept = 50, colour = "#D73027", linetype = "dashed", linewidth = 1) +
+         labs(x = "MAG size (Mb)", y = "Completeness (%)") + theme_bw(base_size = 12) + theme(panel.grid.minor = element_blank())
+
+fig2d <- ggplot(mags, aes(GC * 100, completeness)) + geom_point(colour = "#7570B3", alpha = 0.75, size = 2.3) +
+         geom_smooth(method = "lm", se = FALSE, colour = "#54278F", linewidth = 0.9) +
+         geom_hline(yintercept = 50, colour = "#D73027", linetype = "dashed", linewidth = 1) + labs(x = "GC content (%)", y = "Completeness (%)") +
+         theme_bw(base_size = 12) + theme(panel.grid.minor = element_blank())
+
+fig2 <- (fig2a | fig2b) / (fig2c | fig2d) + plot_annotation(tag_levels = list(c("a", "b", "c", "d"))) & 
+        theme(plot.tag = element_text(face = "bold", size = 16), plot.margin = margin(8, 8, 8, 8))
+
+fig2
+```
+
+## Figure 2e-g
+
+```{r}
+library(tidyverse); library(patchwork)
+
+mags_qc <- mags %>% mutate(Quality = case_when(completeness >= 90 & contamination <= 5 ~ "High quality", completeness >= 50 & contamination <= 10 ~ "Medium quality", TRUE ~ "Low quality"))
+quality_counts <- mags_qc %>% count(Quality) %>% mutate(Quality = factor(Quality, levels = c("High quality", "Medium quality", "Low quality")))
+
+fig2e <- ggplot(quality_counts, aes(x = "", y = n, fill = Quality)) + geom_col(width = 0.7, colour = "white") +
+         geom_text(aes(label = n),  position = position_stack(vjust = 0.5), colour = "white", fontface = "bold", size = 4) + coord_flip() +
+         scale_fill_manual(values = c("High quality" = "#238B45", "Medium quality" = "#74A9CF", "Low quality" = "#D73027")) + labs(x = NULL, y = "Number of MAGs") + theme_bw(base_size = 12) +
+         theme(legend.position = "bottom", legend.title = element_blank(), axis.text.y = element_blank(), axis.ticks.y = element_blank(), panel.grid.minor = element_blank(), panel.grid.major.y = element_blank())
+
+domain_counts <- mags %>% mutate(Domain = gsub("^d__", "", Domain)) %>% count(Domain)
+
+fig2f <- ggplot(domain_counts, aes(x = "", y = n, fill = Domain)) + geom_col(width = 0.7, colour = "white") +
+         geom_text(aes(label = n), position = position_stack(vjust = 0.5), colour = "white", fontface = "bold", size = 4) + coord_flip() +
+         scale_fill_manual(values = c("Bacteria" = "#4C78A8",  "Archaea" = "#F58518")) + labs(x = NULL, y = "Number of MAGs") + theme_bw(base_size = 12) +
+         theme(legend.position = "bottom", legend.title = element_blank(), axis.text.y = element_blank(), axis.ticks.y = element_blank(), panel.grid.minor = element_blank(), panel.grid.major.y = element_blank())
+
+tax_depth <- tibble(Rank = c("Phylum", "Class", "Order", "Family", "Genus", "Species"), 
+                    Count = c(sum(mags$Phylum != "p__"), sum(mags$Class != "c__"), sum(mags$Order != "o__"), sum(mags$Family != "f__"), sum(mags$Genus != "g__"), sum(mags$Species != "s__")))
+tax_depth$Rank <- factor(tax_depth$Rank, levels = c("Phylum", "Class", "Order", "Family", "Genus", "Species"))
+
+fig2g <- ggplot(tax_depth, aes(Rank, Count)) + geom_col(fill = "gray75", colour = "gray50", width = 0.8) + geom_text(aes(label = Count), vjust = -0.25, size = 4) +
+         scale_y_continuous(limits = c(0, 200), breaks = seq(0, 200, 50)) + labs(x = NULL, y = "Classified MAGs") + theme_bw(base_size = 12) +
+         theme(panel.grid.minor = element_blank())
+
+fig2_eg <- (fig2e / fig2f / fig2g) + plot_layout(widths = c(1, 1, 1), heights = c(1,1,2.5))
+fig2_eg
+```
+
+## Figure 3
+
+```{r}
+library(ape); library(phytools); library(ggtree); library(ggtreeExtra); library(ggnewscale); library(paletteer); library(tidyverse)
+
+tree <- read.tree("gtdbtk.bac120.user_msa.tree"); tree <- midpoint.root(tree)
+
+# Metadata
+metadata <- mags %>% filter(Domain == "d__Bacteria") %>%
+            mutate(Quality = case_when(completeness >= 90 & contamination <= 5 ~ "High quality", completeness >= 50 & contamination <= 10 ~ "Medium quality", TRUE ~ "Low quality"),
+            Phylum = gsub("^p__", "", Phylum), Genome_size = pmin(size / 1e6, 8))
+
+metadata <- metadata[ match(tree$tip.label, metadata$bin), ]
+phyla <- sort(unique(metadata$Phylum)); phyla_cols <- setNames(rev(colorRampPalette(paletteer_d("ggthemes::Classic_10"))(length(phyla))), phyla)
+
+# Base tree
+p <- ggtree(tree, layout = "fan", open.angle = 90, size = 0.08, colour = "grey60"); p$data <- merge(p$data, metadata, by.x = "label", by.y = "bin", all.x = TRUE)
+
+# Phylum tip colours
+p <- p + geom_tippoint(aes(fill = Phylum, colour = Phylum), shape = 21, size = 2, stroke = 0.2, alpha = 0.8, show.legend = FALSE) +
+         scale_fill_manual(values = phyla_cols) +  scale_colour_manual(values = phyla_cols, guide = "none")
+
+# Ring 1 : Phylum
+p <- p + ggnewscale::new_scale_fill() + geom_fruit(geom = geom_tile, mapping = aes(fill = Phylum), width = 0.08, offset = 0.08, color = NA) +
+         scale_fill_manual(name = "Phylum", values = phyla_cols)
+
+# Ring 2 : Completeness
+p <- p + ggnewscale::new_scale_fill() + geom_fruit(geom = geom_tile, mapping = aes(fill = completeness), width = 0.08, offset = 0.08, color = NA) +
+         scale_fill_gradient(name = "Completeness (%)", low = "#FFEDA0", high = "#F03B20")
+
+# Ring 3 : MAG quality
+p <- p + ggnewscale::new_scale_fill() + geom_fruit(geom = geom_tile, mapping = aes(fill = Quality), width = 0.08, offset = 0.08, color = NA) +
+         scale_fill_manual(name = "MAG quality", values = c("High quality" = "#238B45", "Medium quality" = "#74A9CF", "Low quality" = "#D73027"))
+
+# Outer track : Genome size (Mbp)
+p <- p + geom_fruit(geom = geom_bar, mapping = aes(y = label, x = Genome_size), stat = "identity", orientation = "y", pwidth = 0.4, offset = 0.08,
+                    fill = "#D9D9D9", colour = NA, axis.params = list(axis = "x", text.size = 2, limits = c(0, 8), nbreak = 3), grid.params = list(colour = "black", linewidth = 0.05))
+
+# Theme
+p <- p + theme(legend.position = "right", legend.title = element_text(size = 10, face = "bold"), legend.text = element_text(size = 8))
+
+# Plot
+p
+```
+
+## Figure 4a
+
+```{r}
+library(tidyverse); library(pheatmap)
+
+sample_cols <- grep("^M\\d{3}$", names(mags), value = TRUE)
+
+# Top 30 most abundant MAGs
+top30 <- mags %>% mutate(MeanAbundance = rowMeans(select(., all_of(sample_cols)))) %>% arrange(desc(MeanAbundance)) %>% slice_head(n = 30)
+
+# Abundance matrix
+abund <- top30 %>% select(all_of(sample_cols)) %>% as.data.frame(); rownames(abund) <- top30$MAG; abund[] <- lapply(abund,as.numeric)
+abund_log <- log10(as.matrix(abund) + 0.01)
+
+# Row annotation
+anno_row <- data.frame(Phylum = factor(gsub("^p__", "", top30$Phylum))); rownames(anno_row) <- top30$MAG
+
+# Column annotation
+anno_col <- meta %>% select(Sample, Country, Status) %>% as.data.frame(); rownames(anno_col) <- anno_col$Sample
+anno_col <- anno_col[sample_cols, c("Country", "Status")]
+anno_col$Country <- factor(anno_col$Country); anno_col$Status  <- factor(anno_col$Status)
+
+phylum_cols <- c("Acidobacteriota" = "#2CB1BC", "Actinomycetota" = "#8CBF56", "Bacteroidota" = "#A7A742", "Chloroflexota" = "#8D858C", "Cyanobacteriota" = "#C06FAF",
+                 "Desulfobacterota" = "#B5678E", "Gemmatimonadota" = "#946062", "Myxococcota" = "#9468B3", "Myxococcota_A" = "#B64573", "Nitrospinota" = "#B54423",
+                 "Nitrospirota" = "#3A9D23", "Planctomycetota" = "#B79618", "Pseudomonadota" = "#C18442", "Verrucomicrobiota" = "#2B79B7")
+
+# Keep only phyla present in top30
+phylum_cols <- phylum_cols[ names(phylum_cols) %in% levels(anno_row$Phylum) ]
+country_cols <- c("Switzerland" = "#1B9E77", "Germany" = "#D95F02", "Spain" = "#7570B3", "Greece" = "#E7298A", "Sweden" = "#66A61E")
+status_cols <- c("Pristine Freshwater" = "#4575B4", "Pristine Salty Estuary" = "#1A9850", "Contaminated" = "#D73027")
+anno_colors <- list(Phylum  = phylum_cols, Country = country_cols, Status  = status_cols)
+
+pheatmap(abund_log, color = colorRampPalette(c("#F7FBFF", "#C6DBEF", "#6BAED6", "#2171B5", "#08306B"))(100), annotation_row = anno_row, annotation_col = anno_col, annotation_colors = anno_colors,
+         clustering_method = "ward.D2", border_color = NA, show_rownames = FALSE, fontsize_col = 10, treeheight_row = 40, treeheight_col = 40, angle_col = 45, main = "Top 30 most abundant MAGs")
+```
+
+## Figure 4b
+
+```{r}
+library(tidyverse); library(ggplot2)
+
+sample_cols <- grep("^M\\d{3}$", names(mags), value = TRUE)
+
+abund <- mags %>% select(all_of(sample_cols)) %>% as.matrix(); mode(abund) <- "numeric"; abund_t <- t(log10(abund + 0.01))
+
+# PCA
+pca <- prcomp(abund_t, center = TRUE, scale. = TRUE); var_exp <- round(100 * summary(pca)$importance[2, 1:2], 1)
+pca_df <- data.frame(Sample = rownames(pca$x), PC1 = pca$x[, 1], PC2 = pca$x[, 2]) %>% left_join(meta, by = "Sample")
+country_cols <- c("Switzerland" = "#1B9E77", "Germany" = "#D95F02", "Spain" = "#7570B3", "Greece" = "#E7298A", "Sweden" = "#66A61E")
+
+ggplot(pca_df, aes(PC1, PC2, colour = Country, shape = Status)) + geom_point(size = 4, alpha = 0.9) + scale_colour_manual(values = country_cols) +
+labs(x = paste0("PC1 (", var_exp[1], "%)"), y = paste0("PC2 (", var_exp[2], "%)")) + theme_bw(base_size = 12) + theme(panel.grid.minor = element_blank(), legend.title = element_blank())
+```
+
+## Figure 4c
+
+```{r}
+library(tidyverse); library(ggplot2)
+
+sample_cols <- grep("^M\\d{3}$", names(mags), value = TRUE)
+
+# MAG prevalence
+prev_df <- mags %>% mutate(Prevalence = rowSums(select(., all_of(sample_cols)) > 0))
+
+fig4c <- ggplot(prev_df, aes(Prevalence)) + geom_histogram(bins = 19, fill = "#4C78A8", colour = "#2F4B7C", alpha = 0.85) + scale_x_continuous(breaks = 0:19) +
+         labs(x = "Number of samples containing MAG", y = "Number of MAGs") + theme_bw(base_size = 12) +
+         theme(panel.grid.minor = element_blank())
+
+fig4c
+```
